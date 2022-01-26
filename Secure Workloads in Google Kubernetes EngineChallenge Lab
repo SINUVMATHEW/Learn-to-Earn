@@ -1,0 +1,136 @@
+TASK 1-----------------------------
+
+gsutil cp gs://spls/gsp335/gsp335.zip .
+
+unzip gsp335.zip
+
+//////update "security-demo-cluster506" on line 9 with your cluster name given in task 1 
+
+gcloud container clusters create security-demo-cluster506 \
+   --zone us-central1-c \
+   --machine-type n1-standard-4 \
+   --num-nodes 2 \
+   --enable-network-policy
+   
+////// wait for the cluster to create ,it will take time, you can check it at kubernetes > cluster   
+   
+  
+TASK 2--------------------------
+
+//////update "wordpress-db-437" on line 19 with your cloud instance name given in task 
+
+gcloud sql instances create wordpress-db-437 --region us-central1
+
+//////wait for the instance to create ,it will take time ....
+//////search sql , click on sql , then click wordpressdb , click on databses from left menu ,create database with name wordpress, click  create
+////// click on users from left menu > add user account with user name as wordpress, click add
+
+
+//////update "sa-wordpress-354" on line 31 ,34 , 37 with your service account given in task 2
+
+gcloud iam service-accounts create sa-wordpress-354
+
+gcloud projects add-iam-policy-binding $DEVSHELL_PROJECT_ID \
+   --member="serviceAccount:sa-wordpress-354@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com" \
+   --role="roles/cloudsql.client"
+
+gcloud iam service-accounts keys create key.json --iam-account=sa-wordpress-354@$DEVSHELL_PROJECT_ID.iam.gserviceaccount.com
+
+kubectl create secret generic cloudsql-instance-credentials --from-file key.json
+
+kubectl create secret generic cloudsql-db-credentials \
+   --from-literal username=wordpress \
+   --from-literal password=''
+   
+kubectl create -f volume.yaml
+
+//////search and go to sql > wordpress-db > overview, copy "connection name" under connect to the instance bar
+//////then come back to terminal and click on open editor > wordpress.yaml > 
+//////then overright connection name on line 61(on editor)with your connection name you just copied ,click file > save all
+
+kubectl apply -f wordpress.yaml
+   
+TASK 3--------------------------------
+
+helm version
+
+helm repo add stable https://charts.helm.sh/stable
+helm repo update
+
+helm install nginx-ingress stable/nginx-ingress --set rbac.create=true
+
+kubectl get service
+
+//////repeat the code on line no 62( kubectl get service ) until an external ip is seen for nginx-ingress controller 
+
+. add_ip.sh
+
+////// you will see your DNS record is ***********************.xyz
+//////for example : student0487652324.labdns.xyz (save it for latter use in your note pad)
+
+kubectl apply -f https://github.com/jetstack/cert-manager/releases/download/v0.16.0/cert-manager.yaml
+
+kubectl create clusterrolebinding cluster-admin-binding \
+   --clusterrole=cluster-admin \
+   --user=$(gcloud config get-value core/account)
+
+//////edit the email of issuer.yaml in editor with your quicklab email , file > save all , then come back to terminal
+
+kubectl apply -f issuer.yaml
+
+//////edit the host name of ingres.yaml in editor with the name you copied on notepad on line 11 and 14(on editor)file > save all , then come back to terminal
+
+kubectl apply -f ingress.yaml
+   
+   
+task 4 -----------------------------------------
+//////go to editor > network-policy.yaml > enter the code given below (do copy the "---" too) , that is from line 88-101
+
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-nginx-access-to-internet
+spec:
+  podSelector:
+    matchLabels:
+      app: nginx-ingress
+  policyTypes:
+  - Ingress
+  ingress:
+  - {}
+  
+  
+  
+  //////files> save all, then come back to terminal by clicking terminal
+  
+  kubectl apply -f network-policy.yaml
+  
+  
+  TASK 5--------------------
+  //////search binary authorization api > enable api
+  //////search security > click on security >binary authorization edit policy
+  //////on check box click diallow all images, click create specific rule > select gke cluster >change 
+  //////scroll down >add specific rule > type u.. then on dop down you will find your cluster >click it then > add
+  //////just below you will find an arrow on custom exception rule click it > add image patter , 4 pattern (code starting with docker.io/..) are given in task 5 
+  //////copy each one by one paste click done , again copy next paste ,click done , repeat for all 4 images 
+  //////save policy
+  //////go to kubernetes engine > clusters > security demo cluster > details > scroll down to security 
+  //////click  pencil icon on binary authorization > enable save changes ,wait until the update get complete you can check the bell icon on top left corner 
+  
+  
+  TASK 6---------------------
+  //////go to editor psp restrictive.yaml > check api vertion is " policy/v1beta1 "or not if not change and save all , go back to terminal
+  
+  kubectl apply -f psp-restrictive.yaml
+  
+  kubectl apply -f psp-role.yaml
+  
+  kubectl apply -f psp-use.yaml
+  
+  
+ Each checkpoint takes time to read the internal data so be patient.
+ if error occure wait a minute and click checkpoint again. 
+ still have error feel free to contact me : 
+ wa.me/919400711787
+ or mail sinuvadakkel@gmail.com
